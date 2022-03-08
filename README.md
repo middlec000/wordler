@@ -15,3 +15,7 @@ https://www.nltk.org/index.html
 Accessed via:  
 ```nlt.corpus.words.words()```  
 NLTK Version: 3.6.5  
+
+# TODO
+* Figure out initial letter-getting mode.  
+    * Try as many different vowels as possible.
