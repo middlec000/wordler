@@ -1,5 +1,5 @@
 import pandas as pd
-import streamlit as st
+import re
 
 
 def compare(guess: str, actual: str):
@@ -63,32 +63,35 @@ def add_known_info(guess: str, result: list, knowns: dict) -> dict:
     return knowns_local
 
 
-def filter(knowns: dict, words: pd.DataFrame) -> pd.DataFrame:
+def filter_words(guesses: dict, words: pd.DataFrame, word_length: int=5) -> pd.DataFrame:
     """
-    Filters words based on knowns.
+    Filters words based on guesses.
 
     Args:
-        knowns (dict): {
-            'exact':['.']*5, # single regex expression with all exact matches
-            'inexact':{
-                'A':{0,3,4},
-                'C':{2,3},
-                etc.
-            }, # dictionary with each inexact match letter and known location mismatches
-            'exclude': set({}) # set of letters to be excluded entirely
-            }
+        guesses (dict): {
+            'word1':[X,X,X,X,X],
+            'word2':[X,X,X,X,X],
+            etc.
+        } # Tracks each word and feedback
+            0 means letter is not correct (exclude), 
+            1 means letter is correct but incorrect location (inexact), 
+            2 means letter and location are correct (exact)
         words (pd.DataFrame): List of current possible words and their frequencies ['word', 'wordFreq'].
 
     Returns:
         pd.DataFrame: Filtered words.
     """
-    filtered_data = words.copy()
-    filtered_data = filter_exact(exact=''.join(knowns['exact']), words=filtered_data)
-    filtered_data = filter_exclude(exclude=knowns['exclude'], words=filtered_data)
-    filtered_data = filter_inexact(inexact=knowns['inexact'], words=filtered_data, word_length=len(knowns['exact']))
+    knowns = {'exact':['.']*word_length, 'inexact':{}, 'exclude': set({})}
+    for guess, result in guesses.items():
+        if len(guess) == word_length:
+            knowns = add_known_info(guess=guess, result=result, knowns=knowns)
+    filtered_words = words.copy()
+    filtered_words = filter_exact(exact=''.join(knowns['exact']), words=filtered_words)
+    filtered_words = filter_exclude(exclude=knowns['exclude'], words=filtered_words)
+    filtered_words = filter_inexact(inexact=knowns['inexact'], words=filtered_words, word_length=len(knowns['exact']))
     # Sort result by word frequency
-    filtered_data = filtered_data.sort_values(by='wordFreq', ascending=False)
-    return filtered_data
+    filtered_words = filtered_words.sort_values(by='wordFreq', ascending=False)
+    return filtered_words
 
 
 def filter_exact(exact: str, words: pd.DataFrame) -> pd.DataFrame:
@@ -143,6 +146,7 @@ def filter_inexact(inexact: dict, words: pd.DataFrame, word_length: int) -> pd.D
     mask_contains = [True] * len(words)
     for inexact_match in inexact:
         mask_contains = words['word'].str.contains(inexact_match) & mask_contains
+    mask_contains = pd.Series(mask_contains)
     # Exclude words with inexact matches at all found location(s)
     mask_exclude = [False] * len(words)
     for inexact_match in inexact:
@@ -151,16 +155,39 @@ def filter_inexact(inexact: dict, words: pd.DataFrame, word_length: int) -> pd.D
             regex[index] = inexact_match
             regex = ''.join(regex)
             mask_exclude = words['word'].str.match(regex) | mask_exclude
-    return words[pd.Series(mask_contains) & ~pd.Series(mask_exclude)]
-
-
-def suggest_words(guesses: dict, words: pd.DataFrame, word_length: int=5):
-    knowns = {'exact':['.']*word_length, 'inexact':{}, 'exclude': set({})}
-    for guess, result in guesses.items():
-        if len(guess) == word_length:
-            knowns = add_known_info(guess=guess, result=result, knowns=knowns)
-    return filter(knowns=knowns, words=words)
+    mask_exclude = pd.Series(mask_exclude)
+    if mask_contains.all() & (~mask_exclude).all():
+        # No filtering is required
+        return words
+    else:
+        return words[mask_contains & ~mask_exclude]
     
 
-def convert_feedback(feedback: str) -> list:
-    return [int(x) for x in list(feedback)]
+def check_convert_input(user_inputs: list):
+    """
+    Check input for erroneous formatting.
+    If input is clean, convert it to more useful format.
+
+    Args:
+        guesses (dict): {
+            'word1':'XXXXX',
+            'word2':'XXXXX',
+            etc.
+        }
+
+    Returns:
+        guesses (dict): {
+            'word1':[X,X,X,X,X],
+            'word2':[X,X,X,X,X],
+            etc.
+        }
+        bad_input (bool): True if input is incorrect format.
+    """
+    guesses = {}
+    bad_input = False
+    for user_input in user_inputs:
+        if re.match(pattern='[A-Z]{5}[-][0-2]{5}', string=user_input):
+            guesses[user_input.split('-')[0]] = [int(x) for x in list(user_input.split('-')[1])]
+        else:
+            bad_input = True
+    return guesses, bad_input
