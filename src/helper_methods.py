@@ -119,10 +119,10 @@ def filter_exclude(exclude: set, words: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Filtered words.
     """
-    mask = [False] * len(words)
+    mask = pd.Series([False] * len(words), index=words.index)
     for exclusion in exclude:
         mask = words['word'].str.contains(exclusion) | mask
-    return words[~pd.Series(mask)]
+    return words[~mask]
 
 
 def filter_inexact(inexact: dict, words: pd.DataFrame, word_length: int) -> pd.DataFrame:
@@ -143,24 +143,18 @@ def filter_inexact(inexact: dict, words: pd.DataFrame, word_length: int) -> pd.D
         pd.DataFrame: Filtered words.
     """
     # Retain only words containing all inexact matches
-    mask_contains = [True] * len(words)
+    mask_contains = pd.Series([True] * len(words), index=words.index)
     for inexact_match in inexact:
         mask_contains = words['word'].str.contains(inexact_match) & mask_contains
-    mask_contains = pd.Series(mask_contains)
     # Exclude words with inexact matches at all found location(s)
-    mask_exclude = [False] * len(words)
+    mask_exclude = pd.Series([False] * len(words), index=words.index)
     for inexact_match in inexact:
         for index in inexact[inexact_match]:
             regex = list('.'*word_length)
             regex[index] = inexact_match
             regex = ''.join(regex)
             mask_exclude = words['word'].str.match(regex) | mask_exclude
-    mask_exclude = pd.Series(mask_exclude)
-    if mask_contains.all() & (~mask_exclude).all():
-        # No filtering is required
-        return words
-    else:
-        return words[mask_contains & ~mask_exclude]
+    return words[mask_contains & ~mask_exclude]
     
 
 def check_convert_input(user_inputs: list):
