@@ -2,14 +2,14 @@
 Program to play the game Wordle.
 
 # Data Sources
+## Kagle Dataset
+https://www.kaggle.com/rtatman/english-word-frequency  
+Accessed: 03/07/2022  
 ## Word Frequencies
 https://www.wordfrequency.info/  
 Free sample of 'Top 60,000 lemmas + word forms (100,000+ forms)'  
 https://www.wordfrequency.info/samples.asp  
 Accessed: 03/06/2022  
-## Kagle Dataset
-https://www.kaggle.com/rtatman/english-word-frequency  
-Accessed: 03/07/2022
 ## NLTK English Dictionary
 https://www.nltk.org/index.html  
 Accessed via:  
@@ -18,10 +18,9 @@ NLTK Version: 3.6.5
 
 # TODO
 * Figure out initial letter-getting mode.  
-  * Try as many different vowels as possible.
+  * Try as many vowels as possible.
 * Streamlit Website
   * Fix double-letter inconsistency with Wordle - get extra info
-  * Make input checker more robust
   * Mode 1: Help me with Wordle - suggest words
   * Mode 2: Play World for me
   * Mode 3: Guess my word
