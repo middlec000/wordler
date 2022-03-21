@@ -42,16 +42,19 @@ def repeated_letter(word: str) -> dict:
             etc.
         } # Dictionary of repeated letters and the indices where they are repeated.
     """
-    repeats = {}
+    repeats = {'letters':{}, 'indices':set({})}
     for i_a in range(len(word)):
         letter_a = word[i_a]
         for i_b in range(i_a+1, len(word)):
             letter_b = word[i_b]
             if letter_a == letter_b:
                 if letter_a in repeats:
-                    repeats[letter_a].add(i_b)
+                    repeats['letters'][letter_a].add(i_b)
+                    repeats['indices'].add(i_b)
                 else:
-                    repeats[letter_a] = set({i_a, i_b})
+                    repeats['letters'][letter_a] = set({i_a, i_b})
+                    repeats['indices'].add(i_a)
+                    repeats['indices'].add(i_b)
     return repeats
 
 
@@ -68,13 +71,18 @@ def add_known_info(guess: str, result: list, knowns: dict) -> dict:
                 'A':{0,3,4},
                 'C':{2,3},
                 etc.
-            }, # Dictionary with each exclude_at match letter and known location mismatches
+                }, # Dictionary with each exclude_at match letter and known location mismatches
             'exclude': set({}), # set of letters to be excluded entirely
-            max_num_letters (dict): {
-            'A':3,
-            'B':1,
-            etc.
-        } # Dictionary of letters with known maximums repeats and their maximums.
+            'max_num_letter' (dict): {
+                'A':3,
+                'B':1,
+                etc.
+                } # Dictionary of letters with known maximums repeats and their maximums.
+            'min_num_letter' (dict): {
+                'A':3,
+                'B':1,
+                etc.
+                } # Dictionary of letters with known minimum repeats and their minimums.
             }
 
     Returns:
@@ -82,7 +90,8 @@ def add_known_info(guess: str, result: list, knowns: dict) -> dict:
     """
     knowns_local = knowns.copy()
     repeats = repeated_letter(word=guess)
-    for i in range(len(guess)):
+    # Non-repeated letters
+    for i in [x for x in list(range(len(guess))) if x not in repeats['indices']]:
         if result[i] == 2:
             knowns_local['exact'][i] = guess[i]
         elif result[i] == 1:
@@ -91,26 +100,27 @@ def add_known_info(guess: str, result: list, knowns: dict) -> dict:
             else:
                 knowns_local['exclude_at'][guess[i]] = set({i})
         elif result[i] == 0:
-            if guess[i] in repeats:
-                all_exclusions = True
-                for r in repeats[guess[i]]:
-                    if result[r] != 0:
-                        all_exclusions = False
-                        if guess[i] not in knowns_local['max_num_letter']:
-                            max_num = 0
-                            for rr in repeats[guess[i]]:
-                                if result[rr] != 0:
-                                    max_num += 1
-                            knowns_local['max_num_letter'][guess[i]] = max_num
-                if all_exclusions:
-                    knowns_local['exclude'].add(guess[i])
-                else:
-                    if guess[i] in knowns_local['exclude_at']:
-                        knowns_local['exclude_at'][guess[i]].add(i)
+            knowns_local['exclude'].add(guess[i])
+    # Repeated letters
+    for letter in repeats['letters']:
+        letter_results = [result[i] for i in repeats['letters'][letter]]
+        num_non_exclude = letter_results.count(1) + letter_results.count(2)
+        num_exclude = letter_results.count(0)
+        # All excludes
+        if num_non_exclude == 0:
+            knowns_local['exclude'].add(letter)
+        else:
+            knowns_local['min_num_letter'][letter] = num_non_exclude
+            if num_exclude != 0:
+                knowns_local['max_num_letter'][letter] = num_non_exclude
+            for i in repeats['letters'][letter]:
+                if result[i] == 0 or result[i] == 1:
+                    if letter in knowns_local['exclude_at']:
+                        knowns_local['exclude_at'][letter].add(i)
                     else:
-                        knowns_local['exclude_at'][guess[i]] = set({i})
-            else:
-                knowns_local['exclude'].add(guess[i])
+                        knowns_local['exclude_at'][letter] = set({i})
+                elif result[i] == 2:
+                    knowns_local['exact'][i] = letter
     return knowns_local
 
 
@@ -132,7 +142,7 @@ def filter_words(guesses: dict, words: pd.DataFrame, word_length: int=5) -> pd.D
     Returns:
         pd.DataFrame: Filtered words.
     """
-    knowns = {'exact':['.']*word_length, 'exclude_at':{}, 'exclude': set({})}
+    knowns = {'exact':['.']*word_length, 'exclude_at':{}, 'exclude': set({}), 'max_num_letter':{}, 'min_num_letter':{}}
     for guess, result in guesses.items():
         if len(guess) == word_length:
             knowns = add_known_info(guess=guess, result=result, knowns=knowns)
@@ -140,7 +150,8 @@ def filter_words(guesses: dict, words: pd.DataFrame, word_length: int=5) -> pd.D
     filtered_words = filter_exact(exact=''.join(knowns['exact']), words=filtered_words)
     filtered_words = filter_exclude(exclude=knowns['exclude'], words=filtered_words)
     filtered_words = filter_exclude_at(exclude_at=knowns['exclude_at'], words=filtered_words, word_length=len(knowns['exact']))
-    filtered_words = filter_max_num_letters(max_num_letters=knowns['max_num_letters'], words=filtered_words)
+    filtered_words = filter_max_num_letter(max_num_letter=knowns['max_num_letter'], words=filtered_words)
+    filtered_words = filter_min_num_letter(min_num_letter=knowns['min_num_letter'], words=filtered_words)
     filtered_words = filtered_words.sort_values(by='wordFreq', ascending=False)
     return filtered_words
 
@@ -187,7 +198,7 @@ def filter_exclude_at(exclude_at: dict, words: pd.DataFrame, word_length: int) -
                 'A':{0,3,4},
                 'C':{2,3},
                 etc.
-            }, # dictionary with each exclude_at match letter and known location mismatches
+            }, # Dictionary with each exclude_at match letter and known location mismatches
         words (pd.DataFrame): List of current possible words and their frequencies ['word', 'wordFreq'].
 
     Returns:
@@ -208,12 +219,12 @@ def filter_exclude_at(exclude_at: dict, words: pd.DataFrame, word_length: int) -
     return words[mask_contains & ~mask_exclude]
 
 
-def filter_max_num_letters(max_num_letters: dict, words: pd.DataFrame) -> pd.DataFrame:
+def filter_max_num_letter(max_num_letter: dict, words: pd.DataFrame) -> pd.DataFrame:
     """
-    Filters words by removing any words with letters repeated more than specified in max_num_letters.
+    Filters words by removing any words with letters repeated more than specified in max_num_letter.
 
     Args:
-        max_num_letters (dict): {
+        max_num_letter (dict): {
             'A':3,
             'B':1,
             etc.
@@ -223,10 +234,35 @@ def filter_max_num_letters(max_num_letters: dict, words: pd.DataFrame) -> pd.Dat
     Returns:
         pd.DataFrame: Filtered words.
     """
-    if max_num_letters:
+    if max_num_letter:
         filtered_words = words.copy()
-        for restricted_letter in max_num_letters:
-            mask = filtered_words['word'].apply(lambda x: x.count(restricted_letter) > max_num_letters[restricted_letter])
+        for restricted_letter in max_num_letter:
+            mask = filtered_words['word'].apply(lambda x: x.count(restricted_letter) > max_num_letter[restricted_letter])
+            filtered_words = filtered_words[~mask]
+        return filtered_words
+    else:
+        return words
+
+
+def filter_min_num_letter(min_num_letter: dict, words: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filters words by removing any words with letters repeated less than specified in min_num_letter.
+
+    Args:
+        min_num_letter (dict): {
+            'A':3,
+            'B':1,
+            etc.
+            } # Dictionary of letters with known minimum repeats and their minimums.
+        words (pd.DataFrame): List of current possible words and their frequencies ['word', 'wordFreq'].
+
+    Returns:
+        pd.DataFrame: Filtered words.
+    """
+    if min_num_letter:
+        filtered_words = words.copy()
+        for restricted_letter in min_num_letter:
+            mask = filtered_words['word'].apply(lambda x: x.count(restricted_letter) < min_num_letter[restricted_letter])
             filtered_words = filtered_words[~mask]
         return filtered_words
     else:
