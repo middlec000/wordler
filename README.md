@@ -26,9 +26,3 @@ NLTK Version: 3.6.5
 # TODO
 * Figure out initial letter-getting mode.  
   * Try as many vowels as possible.
-* Streamlit Website
-  * Fix double-letter inconsistency with Wordle - get extra info
-  * Mode 1: Help me with Wordle - suggest words
-  * Mode 2: Play World for me
-  * Mode 3: Guess my word
-    * Various word lengths
