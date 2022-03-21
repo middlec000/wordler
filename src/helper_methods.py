@@ -124,7 +124,7 @@ def add_known_info(guess: str, result: list, knowns: dict) -> dict:
     return knowns_local
 
 
-def filter_words(guesses: dict, words: pd.DataFrame, word_length: int=5) -> pd.DataFrame:
+def filter_words(guesses: dict, words: pd.DataFrame, remove_previous_words: bool, word_length: int=5) -> pd.DataFrame:
     """
     Filters words based on guesses.
 
@@ -147,6 +147,8 @@ def filter_words(guesses: dict, words: pd.DataFrame, word_length: int=5) -> pd.D
         if len(guess) == word_length:
             knowns = add_known_info(guess=guess, result=result, knowns=knowns)
     filtered_words = words.copy()
+    if remove_previous_words:
+        filtered_words = filter_previous_words(words=filtered_words)
     filtered_words = filter_exact(exact=''.join(knowns['exact']), words=filtered_words)
     filtered_words = filter_exclude(exclude=knowns['exclude'], words=filtered_words)
     filtered_words = filter_exclude_at(exclude_at=knowns['exclude_at'], words=filtered_words, word_length=len(knowns['exact']))
@@ -154,6 +156,22 @@ def filter_words(guesses: dict, words: pd.DataFrame, word_length: int=5) -> pd.D
     filtered_words = filter_min_num_letter(min_num_letter=knowns['min_num_letter'], words=filtered_words)
     filtered_words = filtered_words.sort_values(by='wordFreq', ascending=False)
     return filtered_words
+
+
+def filter_previous_words(words: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filter words by retaining only words that have not been used in the Wordle game before.
+
+    Args:
+        words (pd.DataFrame): List of current possible words and their frequencies ['word', 'wordFreq'].
+
+    Returns:
+        pd.DataFrame: Filtered words.
+    """
+    url = 'https://raw.githubusercontent.com/eagerterrier/previous-wordle-words/main/alphabetical.txt'
+    previous_words = pd.read_csv(url, header=None).squeeze().str.upper()
+    mask = words['word'].apply(lambda x: x in previous_words.values)
+    return words[~mask]
 
 
 def filter_exact(exact: str, words: pd.DataFrame) -> pd.DataFrame:
