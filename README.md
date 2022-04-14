@@ -98,3 +98,18 @@ Thank you Toby Cox (eagerterrier) for maintaining this dataset!
 # Contact Me
 Feel free to contact me with any suggestions or discussion:  
 colindmiddleton@gmail.com
+
+# Notes
+ELR (previous)
+words    time
+10       0.482
+20       1.832
+40       6.985
+80       28.646
+
+ELR (new)
+words    time
+10       1.849
+20       2.112
+40       4.000
+80       9.234
