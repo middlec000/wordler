@@ -37,7 +37,7 @@ def main():
     WORD_LENGTH = 5
 
     # List of Wordle Words
-    with open('Data-Original/wordle_words_03_10_22.txt', 'r') as file:
+    with open('Data-Original/wordle_words_04_15_22.txt', 'r') as file:
         wordle_words = file.read().replace('\n', '').replace('"', '').replace(',', '').upper().split(' ')
     df = pd.DataFrame(data={'word': wordle_words,'wordFreq': [0]*len(wordle_words)}).set_index('word')
     print(f'# Wordle Words: {len(df)}')

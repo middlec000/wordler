@@ -1,5 +1,6 @@
 # Package Imports
 import pandas as pd
+import numpy as np
 import time
 import multiprocessing as mp
 from src.helper_methods import filter_words, compare # elr
@@ -19,22 +20,22 @@ def elr_multiprocess(words: pd.DataFrame, idx0: int, idx1: int, word_legnth: int
 
 def main():
     start = time.time()
-    num_words = 80
+    num_words = 10
 
     df = pd.read_csv('Data-Preprocessed/word_freq.csv').set_index('word')
     df['ELR'] = 1.0
     # df = df.iloc[:num_words]
-
-    num_cores = 8
-    chunk_size = round(len(df) / num_cores)
-    print(f'chunk_size={chunk_size}')
+    print(f'Original Length: {len(df)}')
+    num_cores = mp.cpu_count()
+    print(f'Number of Cores: {num_cores}')
+    chunk_size = int(np.ceil(len(df) / num_cores))
+    print(f'Chunk Size: {chunk_size}')
     queues = [mp.Queue() for i in range(num_cores)]
     processes = [mp.Process(target=elr_multiprocess, args=(df, i*chunk_size, (i+1)*chunk_size, 5, queues[i])) for i in range(num_cores)]
     for p in processes:
         p.start()
     for p in processes:
-        p.join()
-
+        p.join() 
     results = []
     for q in queues:
         results.append(q.get())
